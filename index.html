@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script>
+  (function() {
+    var GA_ID = 'G-FS0B9EC7GK';
+    var isLocalDev = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+    if (isLocalDev) return;
+    var gaQ = new URLSearchParams(location.search); if (gaQ.get('obs') === '1' || gaQ.get('no_ga') === '1') return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', GA_ID);
+    document.addEventListener('click', function(e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href*="booth.pm"]') : null;
+      if (!a) return;
+      gtag('event', 'booth_click', { link_url: a.href, link_id: a.id || '', link_text: (a.textContent || '').trim().slice(0, 40) });
+    });
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="OBSのブラウザソースに貼るだけで使える無料の配信用タイマー。配信開始までのカウントダウン・○分タイマー・経過時間・時計を背景透過で表示。シーンに表示された時点から数え始め、文字の色・縁取り・大きさも変更できます。登録不要。">
+<link rel="canonical" href="https://uuhai0625.github.io/stream-timer/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:title" content="配信用タイマー(OBS対応)|カウントダウン・経過時間・時計を背景透過で表示・無料">
+<meta property="og:description" content="OBSのブラウザソースに貼るだけで使える無料の配信用タイマー。配信開始までのカウントダウン・○分タイマー・経過時間・時計を背景透過で表示。シーンに表示された時点から数え始め、文字の色・縁取り・大きさも変更できます。登録不要。">
+<meta property="og:url" content="https://uuhai0625.github.io/stream-timer/">
+<title>配信用タイマー(OBS対応)|カウントダウン・経過時間・時計を背景透過で表示・無料</title>
+<style>
+  :root {
+    --bg: #f3f5f8;
+    --panel: #ffffff;
+    --border: #dde2ea;
+    --field-border: #848c99;
+    --text: #22262e;
+    --muted: #59606c;
+    --accent: #2f6fdb;
+    --accent-dark: #2156ad;
+    --soft: #eaf1fd;
+    --warn-bg: #fff4e0;
+    --warn-text: #7a4b00;
+    --locked: #aab1bd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  header { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff; padding: 24px 20px 18px; text-align: center; }
+  header h1 { margin: 0 0 6px; font-size: 1.4rem; }
+  header p { margin: 0; font-size: .9rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 22px 16px 50px; }
+  section.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+  section.card h2 { margin: 0 0 6px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .desc { color: var(--muted); font-size: .84rem; margin: 0 0 12px; }
+  .fine { color: var(--muted); font-size: .8rem; margin: 8px 0 0; }
+  .badge { display: inline-block; font-size: .7rem; padding: 2px 8px; border-radius: 999px; background: #fff1cc; color: #7a5600; font-weight: bold; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .hidden { display: none !important; }
+  .steps-top { display: flex; gap: 8px; flex-wrap: wrap; font-size: .84rem; margin: 0 0 16px; }
+  .steps-top span { background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; }
+  label.field { display: block; margin-bottom: 12px; }
+  .lbl { font-size: .85rem; font-weight: bold; display: block; }
+  .hint { font-size: .78rem; color: var(--muted); font-weight: normal; display: block; margin-top: 2px; }
+  input[type=text], input[type=number], input[type=time], input[type=date], select {
+    width: 100%; margin-top: 5px; padding: 8px 10px; min-height: 44px;
+    border: 1px solid var(--field-border); border-radius: 8px; font-size: 1rem; font-family: inherit; background: #fff; color: var(--text);
+  }
+  input[type=color] { width: 100%; height: 44px; margin-top: 5px; border: 1px solid var(--field-border); border-radius: 8px; background: #fff; padding: 2px; }
+  .row2, .row3 { display: flex; gap: 12px; }
+  .row2 > *, .row3 > * { flex: 1; min-width: 0; }
+  label.check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: .86rem; cursor: pointer; }
+  label.check input { width: 20px; height: 20px; margin: 0; flex-shrink: 0; }
+  fieldset.plain { border: none; padding: 0; margin: 0 0 12px; }
+  fieldset.plain legend { font-size: .85rem; font-weight: bold; padding: 0; margin-bottom: 5px; }
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg label { flex: 1; min-width: 130px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center;
+    border: 1px solid var(--field-border); border-radius: 8px; padding: 6px 10px; font-size: .86rem; cursor: pointer; background: #fff; }
+  .seg label.on { border-color: var(--accent); background: var(--soft); font-weight: bold; }
+  .seg label.locked { color: #767d89; background: #f4f5f7; cursor: default; border-style: dashed; }
+  .seg label:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { min-height: 44px; padding: 9px 16px; border-radius: 8px; font-size: .88rem; cursor: pointer; border: 1px solid var(--field-border); background: #fff; color: var(--text); font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
+  .btn:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+  .status { font-size: .8rem; color: var(--muted); margin-top: 6px; min-height: 1.2em; }
+  .preview-box {
+    margin-top: 6px; border-radius: 10px; height: 200px; position: relative; overflow: hidden;
+    background-color: #3a3f4a;
+    background-image: linear-gradient(45deg, #444a56 25%, transparent 25%), linear-gradient(-45deg, #444a56 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #444a56 75%), linear-gradient(-45deg, transparent 75%, #444a56 75%);
+    background-size: 24px 24px; background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+  }
+  .preview-box .scaler { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
+  .url-box { width: 100%; min-height: 70px; padding: 10px; border: 1px solid var(--field-border); border-radius: 8px; font-family: Consolas, monospace; font-size: .82rem; word-break: break-all; background: #fafbfc; }
+  ol.steps { padding-left: 1.3em; font-size: .88rem; margin: 6px 0 0; }
+  ol.steps li { margin-bottom: 4px; }
+  .notice { font-size: .82rem; background: var(--warn-bg); color: var(--warn-text); border-radius: 8px; padding: 8px 12px; margin: 8px 0 0; }
+  .locked-panel { border: 1px dashed var(--locked); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); background: #fafbfc; }
+  .locked-panel .feat-list { text-align: left; max-width: 540px; margin: 10px auto; font-size: .85rem; padding-left: 1.2em; }
+  .buy-btn { display: inline-block; margin-top: 8px; background: var(--accent-dark); color: #fff; font-weight: bold; padding: 11px 22px; border-radius: 999px; text-decoration: none; font-size: .9rem; }
+  .saved-item { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .84rem; word-break: break-all; }
+  .saved-item .ops { display: flex; gap: 6px; flex-shrink: 0; }
+  footer { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; font-size: .8rem; color: var(--muted); }
+  footer a { color: var(--muted); }
+
+  /* タイマー表示 */
+  .tm { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; white-space: nowrap; padding: .1em .15em; }
+  .tm.al-left { align-items: flex-start; }
+  .tm.al-right { align-items: flex-end; }
+  .tm .tm-label { font-weight: bold; }
+  .tm .tm-time { font-weight: bold; font-variant-numeric: tabular-nums; }
+  .tm .tm-bar { width: 100%; min-width: 4em; height: .18em; border-radius: 99px; margin-top: .15em; overflow: hidden; }
+  .tm .tm-bar > span { display: block; height: 100%; border-radius: 99px; }
+
+  /* OBSで読み込んだとき(表示だけ・背景透過) */
+  html.obs, html.obs body { background: transparent !important; margin: 0; overflow: hidden; }
+  html.obs body > *:not(#obsStage):not(#obsNote) { display: none !important; }
+  #obsStage, #obsNote { display: none; }
+  html.obs #obsStage { display: flex; width: 100vw; height: 100vh; align-items: center; justify-content: center; padding: 1vh 2vw; }
+  html.obs #obsStage.al-left { justify-content: flex-start; }
+  html.obs #obsStage.al-right { justify-content: flex-end; }
+  html.obs #obsStage .tm { transform-origin: center center; }
+  html.obs #obsStage.al-left .tm { transform-origin: left center; }
+  html.obs #obsStage.al-right .tm { transform-origin: right center; }
+  /* OBSの外(普通のブラウザ)で開いたときだけ、見やすいように暗い背景を敷く */
+  html.obs.outside, html.obs.outside body { background: #3a3f4a !important; }
+  html.obs.outside #obsNote { display: block; position: fixed; left: 8px; bottom: 6px; color: #d7dbe2; font: 12px sans-serif; }
+
+  @media (max-width: 600px) {
+    .row2, .row3 { flex-direction: column; gap: 0; }
+    section.card { padding: 16px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="obsStage"></div>
+<p id="obsNote">確認用の表示です(OBSでは背景が透明になります)</p>
+
+<header>
+  <h1>配信用タイマー(OBS対応)</h1>
+  <p>配信開始までのカウントダウン・経過時間・時計を、OBSの「ブラウザ」ソースに貼るだけで背景透過で表示。登録不要・無料</p>
+</header>
+
+<main>
+  <div class="steps-top" aria-hidden="true"><span>① 種類を選ぶ</span><span>② 見た目を決める</span><span>③ URLをコピーしてOBSに貼る</span></div>
+
+  <section class="card">
+    <h2>① タイマーの種類</h2>
+    <fieldset class="plain"><legend>種類</legend><div class="seg" id="modeSeg"></div></fieldset>
+    <div id="modeOpts"></div>
+    <div class="row2">
+      <label class="field">
+        <span class="lbl">上に出す文字(空欄なら出しません)</span>
+        <input type="text" id="in-label" maxlength="30">
+      </label>
+      <label class="field" id="endField">
+        <span class="lbl">終わったときの表示</span>
+        <input type="text" id="in-end" maxlength="30" aria-describedby="endHint">
+        <span class="hint" id="endHint">空欄にすると、終わったら何も表示しません(消えます)</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>② 見た目</h2>
+    <fieldset class="plain"><legend>デザイン</legend><div class="seg" id="styleSeg"></div></fieldset>
+    <p class="hint" id="styleHint" style="margin:-6px 0 10px;"></p>
+    <div class="row3">
+      <label class="field"><span class="lbl">数字の大きさ(16〜400px)</span><input type="number" id="in-size" min="16" max="400" step="2"></label>
+      <label class="field"><span class="lbl">フォント</span>
+        <select id="in-font"><option value="gothic">ゴシック</option><option value="mincho">明朝</option><option value="mono">等幅(数字が揺れない)</option><option value="round">丸ゴシック(Windowsは環境により通常のゴシック)</option></select>
+      </label>
+      <label class="field"><span class="lbl">文字の位置</span>
+        <select id="in-align"><option value="center">中央</option><option value="left">左寄せ</option><option value="right">右寄せ</option></select>
+      </label>
+    </div>
+    <div class="row3">
+      <label class="field"><span class="lbl">文字の色</span><input type="color" id="in-color"></label>
+      <label class="field"><span class="lbl" id="ocLabel">縁取りの色</span><input type="color" id="in-ocolor"></label>
+      <label class="field"><span class="lbl">縁取りの太さ(0〜20px)</span><input type="number" id="in-owidth" min="0" max="20" step="1"></label>
+    </div>
+    
+    <p class="lbl" style="margin:10px 0 0;">プレビュー(市松模様の部分は透明になります。大きい文字は縮めて表示)</p>
+    <div class="preview-box" id="previewBox"><div class="scaler" id="preview"></div></div>
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn" type="button" id="previewEnd">終わったときの表示を確認</button>
+      <button class="btn" type="button" id="previewRestart">最初から数え直す</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>③ OBSに追加する</h2>
+    <div id="fileModeNote" class="notice hidden">このファイルをパソコンで開いているので、下のURLは「このファイルの場所」になります。OBSでは④の「設定入りHTMLの保存」を使う方法がおすすめです(URLを使う場合は「ローカルファイル」のチェックを外したまま貼り、HTMLファイルを動かさないでください)。</div>
+    <label class="lbl" for="obsUrl">OBSに貼るURL</label>
+    <textarea class="url-box" id="obsUrl" readonly></textarea>
+    <div class="btn-row">
+      <button class="btn primary" type="button" id="copyUrl">URLをコピー</button>
+      <a class="btn" id="openUrl" href="#" target="_blank" rel="noopener">別タブで表示を確認</a>
+    </div>
+    <div class="status" id="copyStatus" role="status"></div>
+    <ol class="steps">
+      <li>OBSの「ソース」の「+」→「ブラウザ」を選び、名前をつけてOKを押します。</li>
+      <li>「URL」に上のURLを貼り付け(「ローカルファイル」はチェックしない)、幅を<strong id="hintW">800</strong>、高さを<strong id="hintH">300</strong>にしてOKを押します。カスタムCSSはそのままで大丈夫です。</li>
+      <li>位置はOBSの画面上でドラッグして調整します。大きくしたいときは、OBSで引き伸ばすと文字がぼやけるので、②の「数字の大きさ」を変えてURLを貼り直してください。</li>
+      <li>設定を変えたときは、URLをコピーし直してソースのプロパティで貼り替えます。</li>
+    </ol>
+    <p class="notice hidden" id="restartNote"></p>
+    <p class="fine">貼るURLが <code>https://uuhai0625.github.io/stream-timer/</code> で始まっていることを確認してください。表示のたびにこのページを読み込むので、インターネット接続が必要です(このサイトやネットが止まると表示されません。大事な配信では、ネットなしで動く買い切り版の保存HTMLが安心です)。</p>
+  </section>
+
+  <section class="card" id="pro-section">
+    <h2>ネットなしで動く保存版・終了の音・日付カウントダウンなど <span class="badge">買い切り版 ¥100</span></h2>
+    <div class="locked-panel">
+      <p>このページの機能はそのまま無料で使えます。買い切り版(ダウンロード購入)では、次の機能が増えます:</p>
+      <ul class="feat-list">
+        <li><strong>設定入りHTMLの保存</strong>: インターネットにつながず、OBSの「ローカルファイル」で動きます(このサイトが止まっても消えません)</li>
+        <li><strong>終わったときのチャイム音</strong></li>
+        <li><strong>日付指定のカウントダウン</strong>: 誕生日・記念日・デビュー○周年まで「あと○日」</li>
+        <li><strong>ポモドーロ</strong>(作業配信用に「作業25分・休憩5分×4回」などを自動で切り替え)と<strong>残り時間のバー</strong></li>
+        <li><strong>デザインのプリセット4種</strong>(ネオン・ポップ・デジタル・和風。色は自由に変えられます)と<strong>設定の保存</strong></li>
+      </ul>
+      <a class="buy-btn" href="https://uuhai0625.booth.pm/items/8932289" id="buyLink" target="_blank" rel="noopener">買い切り版を見る(BOOTH・新しいタブ)</a>
+    </div>
+  </section>
+
+  
+
+</main>
+
+<footer>
+  <p id="privacyNote">設定はURL(または保存したHTML)と、このブラウザの中にだけ保存されます。開発者には送信されません。</p>
+  <p>OBS・OBS Studio は Wizards of OBS LLC の商標です。本ツールは OBS Project とは関係のない、個人が制作したツールです。</p>
+  <p>ほかの無料ツールは<a href="https://uuhai0625.booth.pm/" target="_blank" rel="noopener">BOOTHショップ</a>から。VTuber向けには<a href="https://uuhai0625.github.io/vtuber-schedule/" target="_blank" rel="noopener">週間配信スケジュール作成ツール</a>もどうぞ。不具合・ご要望は X <a href="https://x.com/uuhai0625" target="_blank" rel="noopener">@uuhai0625</a> まで。</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var EDITION = "free"; // "full" で買い切り完全版
+  var SELF_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+  function track(name, params) {
+    if (!window.dataLayer) return;
+    (function () { window.dataLayer.push(arguments); })("event", name, params || {});
+  }
+  var $ = function (id) { return document.getElementById(id); };
+  function has(o, k) { return typeof k === "string" && Object.prototype.hasOwnProperty.call(o, k); }
+
+  var MODES = [
+    { key: "to", label: "指定時刻まで", def: { l: "配信開始まで", e: "まもなく開始!" } },
+    { key: "dur", label: "○分カウントダウン", def: { l: "休憩中", e: "再開します!" } },
+    { key: "up", label: "経過時間", def: { l: "配信開始から", e: "" } },
+    { key: "clock", label: "現在時刻(時計)", def: { l: "", e: "" } }
+  ];
+  var PRO_MODE_PREVIEW = [{ key: "date", label: "日付まで あと○日" }, { key: "pomo", label: "ポモドーロ" }];
+  
+
+  var STYLES = [{ key: "basic", label: "シンプル" }];
+  var PRO_STYLE_PREVIEW = [{ key: "neon", label: "ネオン" }, { key: "pop", label: "ポップ" }, { key: "digital", label: "デジタル" }, { key: "wa", label: "和風" }];
+  
+
+  var FONTS = {
+    gothic: '"Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif',
+    mincho: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "MS PMincho", serif',
+    mono: 'Consolas, "Menlo", "Courier New", "Yu Gothic", monospace',
+    round: '"Hiragino Maru Gothic ProN", "HG丸ｺﾞｼｯｸM-PRO", "BIZ UDPGothic", "Meiryo", sans-serif'
+  };
+
+  // ===== 設定(URLのパラメータと相互変換) =====
+  var DEF = { m: "to", t: "21:00", d: 10, s: "", dt: "", l: "配信開始まで", e: "まもなく開始!", st: "basic", fs: 96, f: "gothic", a: "center",
+    c: "#ffffff", oc: "#222222", ow: 4, sec: 1, bar: 0, snd: 0, pw: 25, pb: 5, pn: 4 };
+  var cfg = Object.assign({}, DEF);
+  var edited = { l: false, e: false };
+
+  function clampInt(v, lo, hi, d) { if (v === "" || v == null) return d; var n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n))) : d; }
+  function color(v, d) { return /^#[0-9a-fA-F]{6}$/.test(v || "") ? v.toLowerCase() : d; }
+  function modeDef(k) { var m = MODES.filter(function (x) { return x.key === k; })[0]; return m ? m.def : MODES[0].def; }
+  function sanitize(o) {
+    var c = Object.assign({}, DEF);
+    if (MODES.some(function (m) { return m.key === o.m; })) c.m = o.m;
+    var md = modeDef(c.m);
+    c.l = typeof o.l === "string" ? o.l.slice(0, 30) : md.l;
+    c.e = typeof o.e === "string" ? o.e.slice(0, 30) : md.e;
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(o.t || "")) c.t = o.t;
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(o.s || "")) c.s = o.s;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(o.dt || "")) c.dt = o.dt;
+    c.d = clampInt(o.d, 1, 600, DEF.d);
+    if (STYLES.some(function (s) { return s.key === o.st; })) c.st = o.st;
+    c.fs = clampInt(o.fs, 16, 400, DEF.fs);
+    if (has(FONTS, o.f)) c.f = o.f;
+    if (["center", "left", "right"].indexOf(o.a) >= 0) c.a = o.a;
+    c.c = color(o.c, DEF.c); c.oc = color(o.oc, DEF.oc); c.ow = clampInt(o.ow, 0, 20, DEF.ow);
+    c.sec = o.sec === 0 || o.sec === "0" ? 0 : 1;
+    
+    return c;
+  }
+  function toQuery(c) {
+    var keys = ["m", "l", "e", "st", "fs", "f", "a", "c", "oc", "ow"];
+    if (c.m === "to") keys.push("t");
+    if (c.m === "dur") keys.push("d");
+    if (c.m === "up" && c.s) keys.push("s");
+    if (c.m === "clock") keys.push("sec");
+    
+    var p = new URLSearchParams(); p.set("obs", "1");
+    keys.forEach(function (k) { p.set(k, String(c[k])); });
+    return p.toString();
+  }
+
+  // ===== タイマーの計算 =====
+  var startedAt = Date.now();
+  function restart() { startedAt = Date.now(); }
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function fmtHMS(totalSec) {
+    var h = Math.floor(totalSec / 3600), m = Math.floor(totalSec % 3600 / 60), ss = totalSec % 60;
+    return h ? h + ":" + pad2(m) + ":" + pad2(ss) : pad2(m) + ":" + pad2(ss);
+  }
+  function fmtDur(ms) { return fmtHMS(Math.max(0, Math.ceil(ms / 1000))); }
+  function fmtUp(ms) { return fmtHMS(Math.max(0, Math.floor(ms / 1000))); }
+  // 指定時刻: 今から見て±12時間の範囲にある同じ時刻を使う(過ぎて12時間以内は「終了」)
+  function targetTime(now, hhmm) {
+    var p = hhmm.split(":"), t = new Date(now); t.setHours(+p[0], +p[1], 0, 0);
+    var diff = now - t.getTime();
+    if (diff > 12 * 3600000) t.setDate(t.getDate() + 1);
+    else if (diff < -12 * 3600000) t.setDate(t.getDate() - 1);
+    return t.getTime();
+  }
+  // 経過時間の開始時刻(未来なら前日の同時刻)
+  function startTime(now, hhmm) {
+    var p = hhmm.split(":"), t = new Date(now); t.setHours(+p[0], +p[1], 0, 0);
+    if (t.getTime() > now) t.setDate(t.getDate() - 1);
+    return t.getTime();
+  }
+  function compute(c, now) {
+    var el = Math.max(0, now - startedAt);
+    if (c.m === "to") {
+      var rem = targetTime(now, c.t) - now;
+      return rem > 0 ? { label: c.l, time: fmtDur(rem) } : { label: "", time: c.e, done: true };
+    }
+    if (c.m === "dur") {
+      var total = c.d * 60000, r = total - el;
+      return r > 0 ? { label: c.l, time: fmtDur(r), frac: r / total } : { label: "", time: c.e, done: true, frac: 0 };
+    }
+    if (c.m === "up") return { label: c.l, time: fmtUp(c.s ? now - startTime(now, c.s) : el) };
+    if (c.m === "clock") {
+      var d = new Date(now);
+      return { label: c.l, time: d.getHours() + ":" + pad2(d.getMinutes()) + (c.sec ? ":" + pad2(d.getSeconds()) : "") };
+    }
+    
+    return { label: "", time: "--:--" };
+  }
+
+  // ===== 音(買い切り版) =====
+  var chime = function () {};
+  
+
+  // ===== 表示 =====
+  function outlineShadow(col, w) {
+    if (!w) return "";
+    var out = [], steps = Math.max(8, w * 4);
+    for (var i = 0; i < steps; i++) { var a = (i / steps) * Math.PI * 2; out.push((Math.cos(a) * w).toFixed(1) + "px " + (Math.sin(a) * w).toFixed(1) + "px 0 " + col); }
+    return out.join(",");
+  }
+  function buildTimer(box) {
+    box.innerHTML = "";
+    var w = document.createElement("div"); w.className = "tm";
+    var lb = document.createElement("div"); lb.className = "tm-label";
+    var tm = document.createElement("div"); tm.className = "tm-time";
+    var bar = document.createElement("div"); bar.className = "tm-bar hidden"; var fill = document.createElement("span"); bar.appendChild(fill);
+    w.appendChild(lb); w.appendChild(tm); w.appendChild(bar); box.appendChild(w);
+    return { wrap: w, label: lb, time: tm, bar: bar, fill: fill, last: {} };
+  }
+  function effectFor(c) {
+    var fx = { glow: false, shadow: false, spacing: "" };
+    
+    return fx;
+  }
+  function applyStyle(t, c) {
+    var fx = effectFor(c), shadows = [];
+    if (fx.glow) shadows.push("0 0 .08em " + c.oc, "0 0 .2em " + c.oc, "0 0 .45em " + c.oc);
+    else { var o = outlineShadow(c.oc, c.ow); if (o) shadows.push(o); }
+    if (fx.shadow) shadows.push(".06em .08em 0 rgba(0,0,0,.45)");
+    t.wrap.className = "tm al-" + c.a;
+    t.wrap.style.fontFamily = FONTS[c.f] || FONTS.gothic;
+    t.wrap.style.color = c.c;
+    t.wrap.style.textShadow = shadows.join(",") || "none";
+    t.time.style.fontSize = c.fs + "px";
+    t.time.style.letterSpacing = fx.spacing;
+    t.label.style.fontSize = Math.round(c.fs * 0.36) + "px";
+    t.bar.style.background = "rgba(255,255,255,.25)";
+    t.fill.style.background = c.c;
+    t.last = {};
+  }
+  function paint(t, c, forceEnd) {
+    var r = forceEnd ? { label: "", time: c.e, done: true, frac: 0 } : compute(c, Date.now());
+    var label = r.label || "", time = r.time || "";
+    if (t.last.label !== label) { t.label.textContent = label; t.label.classList.toggle("hidden", !label); t.last.label = label; }
+    if (t.last.time !== time) { t.time.textContent = time; t.time.classList.toggle("hidden", !time); t.last.time = time; }
+    var showBar = EDITION === "full" && !!c.bar && typeof r.frac === "number" && !r.done;
+    t.bar.classList.toggle("hidden", !showBar);
+    if (showBar) t.fill.style.width = Math.max(0, Math.min(100, r.frac * 100)) + "%";
+    return r;
+  }
+  // 文字が枠に収まらないときは縮める
+  function fitInto(el, availW, availH) {
+    el.style.transform = "none";
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var s = Math.min(1, w ? availW / w : 1, h ? availH / h : 1);
+    el.style.transform = s < 1 ? "scale(" + s + ")" : "none";
+    return s;
+  }
+
+  // ===== OBS表示モード(URLに obs=1、または設定入りHTML) =====
+  var embedded = window.__OBS_TIMER_CFG && typeof window.__OBS_TIMER_CFG === "object" ? window.__OBS_TIMER_CFG : null;
+  var qs = new URLSearchParams(location.search);
+  if (embedded || qs.get("obs") === "1") {
+    var src = embedded || {};
+    if (!embedded) qs.forEach(function (v, k) { if (k !== "__proto__") src[k] = v; });
+    var oc = sanitize(src);
+    document.documentElement.classList.add("obs");
+    if (typeof window.obsstudio === "undefined") document.documentElement.classList.add("outside");
+    var stage = $("obsStage"); stage.className = "al-" + oc.a;
+    var t0 = buildTimer(stage); applyStyle(t0, oc);
+    var wasDone = false, lastPhase = "";
+    function tick() {
+      var r = paint(t0, oc);
+      fitInto(t0.wrap, stage.clientWidth - 8, stage.clientHeight - 8);
+      if (oc.snd && EDITION === "full") {
+        if (r.done && !wasDone) chime();
+        if (oc.m === "pomo" && r.phase && lastPhase && r.phase !== lastPhase) chime();
+      }
+      wasDone = !!r.done; lastPhase = r.phase || lastPhase;
+    }
+    tick();
+    setInterval(tick, 250);
+    window.addEventListener("resize", tick);
+    // OBSのイベント: シーンで表示されたら○分・ポモドーロを数え直す。経過時間は配信開始で数え直す
+    window.addEventListener("obsSourceActiveChanged", function (e) {
+      if (e && e.detail && e.detail.active && (oc.m === "dur" || oc.m === "pomo")) { restart(); wasDone = false; lastPhase = ""; tick(); }
+    });
+    window.addEventListener("obsStreamingStarted", function () { if (oc.m === "up" && !oc.s) { restart(); tick(); } });
+    return;
+  }
+
+  // ===== 設定画面 =====
+  function buildSeg(id, items, current, onPick) {
+    var box = $(id); box.innerHTML = "";
+    items.forEach(function (it) {
+      var lab = document.createElement("label");
+      lab.className = (it.key === current ? "on" : "") + (it.locked ? " locked" : "");
+      var r = document.createElement("input"); r.type = "radio"; r.name = id; r.value = it.key; r.checked = it.key === current; r.disabled = !!it.locked;
+      r.addEventListener("change", function () { box.querySelectorAll("label").forEach(function (l) { l.classList.toggle("on", l.querySelector("input").checked); }); onPick(it.key); });
+      lab.appendChild(r); lab.appendChild(document.createTextNode(it.label)); box.appendChild(lab);
+    });
+  }
+  function renderSegs() {
+    var modes = MODES.map(function (m) { return { key: m.key, label: m.label }; });
+    if (EDITION !== "full") PRO_MODE_PREVIEW.forEach(function (m) { modes.push({ key: m.key, label: m.label + "(買い切り版)", locked: true }); });
+    buildSeg("modeSeg", modes, cfg.m, function (k) {
+      var def = modeDef(k);
+      if (!edited.l) cfg.l = def.l;
+      if (!edited.e) cfg.e = def.e;
+      cfg.m = k; syncForm(); renderModeOpts(); update();
+    });
+    var styles = STYLES.map(function (s) { return { key: s.key, label: s.label }; });
+    if (EDITION !== "full") PRO_STYLE_PREVIEW.forEach(function (s) { styles.push({ key: s.key, label: s.label + "(買い切り版)", locked: true }); });
+    buildSeg("styleSeg", styles, cfg.st, function (k) {
+      cfg.st = k;
+      
+      syncForm(); update(); track("style_select", { style: k });
+    });
+  }
+  function field(labelText, input, hintText) {
+    var l = document.createElement("label"); l.className = "field";
+    var s = document.createElement("span"); s.className = "lbl"; s.textContent = labelText; l.appendChild(s);
+    l.appendChild(input);
+    if (hintText) {
+      var h = document.createElement("span"); h.className = "hint"; h.textContent = hintText;
+      h.id = "h-" + Math.random().toString(36).slice(2, 8); input.setAttribute("aria-describedby", h.id); l.appendChild(h);
+    }
+    return l;
+  }
+  function numInput(key, min, max) {
+    var i = document.createElement("input"); i.type = "number"; i.min = min; i.max = max; i.step = 1; i.value = cfg[key];
+    i.addEventListener("input", function () { var v = Number(i.value); var ok = Number.isInteger(v) && v >= min && v <= max; i.setAttribute("aria-invalid", ok ? "false" : "true"); if (ok) { cfg[key] = v; update(); } });
+    i.addEventListener("blur", function () { i.value = cfg[key]; i.setAttribute("aria-invalid", "false"); });
+    return i;
+  }
+  function timeInput(key, allowEmpty) {
+    var ti = document.createElement("input"); ti.type = "time"; ti.value = cfg[key];
+    ti.addEventListener("input", function () { if (/^\d{2}:\d{2}$/.test(ti.value) || (allowEmpty && ti.value === "")) { cfg[key] = ti.value; update(); } });
+    return ti;
+  }
+  function renderModeOpts() {
+    var box = $("modeOpts"); box.innerHTML = "";
+    if (cfg.m === "to") {
+      box.appendChild(field("何時まで(配信開始の時刻など)", timeInput("t"), "過ぎてから12時間以内は「終わったときの表示」を出し、それより前なら次の同じ時刻まで数えます"));
+    } else if (cfg.m === "dur") {
+      box.appendChild(field("何分(1〜600)", numInput("d", 1, 600), "OBSのシーンに表示された時点から数え始めます"));
+    } else if (cfg.m === "up") {
+      box.appendChild(field("配信開始の時刻(任意)", timeInput("s", true), "入れると、その時刻からの経過時間を出します(OBSを再起動してもずれません)。空欄なら、OBSで配信を開始した時点から数えます"));
+    } else if (cfg.m === "clock") {
+      var lab = document.createElement("label"); lab.className = "check";
+      var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!cfg.sec;
+      cb.addEventListener("change", function () { cfg.sec = cb.checked ? 1 : 0; update(); });
+      lab.appendChild(cb); lab.appendChild(document.createTextNode("秒も表示する")); box.appendChild(lab);
+    }
+    
+    $("endField").classList.toggle("hidden", cfg.m === "up" || cfg.m === "clock");
+    var note = $("restartNote"), msg = "";
+    if (cfg.m === "dur" || cfg.m === "pomo") msg = "OBSでこのソースが表示された(シーンに出た)時点から数え始めます。うまく数え直されない場合は、ソースのプロパティで「シーンがアクティブになったときにブラウザの表示を更新する」をオンにしてください。途中で数え直したいときは「現在のページのキャッシュを更新」を押します。";
+    else if (cfg.m === "up") msg = cfg.s ? "開始時刻からの経過時間を出すので、OBSを再起動してもずれません。「シーンがアクティブになったときにブラウザの表示を更新する」はオフのままにしてください。" : "OBSで配信を開始した時点から数え始めます(配信前に読み込んだ場合は、読み込んだ時点から)。ずれないようにしたいときは「配信開始の時刻」を入れてください。「シーンがアクティブになったときにブラウザの表示を更新する」はオフのままにしてください。";
+    note.textContent = msg; note.classList.toggle("hidden", !msg);
+  }
+  function syncForm() {
+    $("in-label").value = cfg.l; $("in-end").value = cfg.e; $("in-size").value = cfg.fs; $("in-font").value = cfg.f; $("in-align").value = cfg.a;
+    $("in-color").value = cfg.c; $("in-ocolor").value = cfg.oc; $("in-owidth").value = cfg.ow;
+    var fx = effectFor(cfg);
+    $("ocLabel").textContent = fx.glow ? "光の色" : "縁取りの色";
+    $("in-owidth").disabled = fx.glow;
+    var hint = "";
+    
+    $("styleHint").textContent = hint; $("styleHint").classList.toggle("hidden", !hint);
+  }
+
+  var prev = buildTimer($("preview"));
+  var previewEndUntil = 0;
+  function layoutPreview() {
+    var box = $("previewBox"), sc = $("preview");
+    sc.style.transform = "translate(-50%,-50%)";
+    var w = sc.offsetWidth, h = sc.offsetHeight;
+    var s = Math.min(1, (box.clientWidth - 20) / (w || 1), (box.clientHeight - 20) / (h || 1));
+    sc.style.transform = "translate(-50%,-50%) scale(" + s + ")";
+  }
+  function paintPreview() { paint(prev, cfg, Date.now() < previewEndUntil); layoutPreview(); }
+
+  // OBSのブラウザソースの幅・高さの目安(実際の文字幅を測る)
+  var measureCtx = document.createElement("canvas").getContext("2d");
+  function textW(text, px) { measureCtx.font = "bold " + px + "px " + (FONTS[cfg.f] || FONTS.gothic); return measureCtx.measureText(text || "").width; }
+  function sizeHint() {
+    var samples = { to: "0:00:00", dur: cfg.d >= 60 ? "0:00:00" : "00:00", up: "0:00:00", clock: cfg.sec ? "00:00:00" : "00:00", date: "あと999日 00:00:00", pomo: "00:00" };
+    var tw = Math.max(textW(samples[cfg.m] || "00:00:00", cfg.fs), textW(cfg.e, cfg.fs), textW(cfg.l + (cfg.m === "pomo" ? " 作業中 12/12" : ""), Math.round(cfg.fs * 0.36)));
+    var pad = (cfg.ow || 0) * 2 + cfg.fs * 0.5;
+    var w = Math.ceil((tw + pad) * 1.06 / 10) * 10;
+    var hasLabel = !!cfg.l || cfg.m === "pomo";
+    var h = Math.ceil((cfg.fs * 1.25 + (hasLabel ? cfg.fs * 0.45 : 0) + (cfg.bar ? cfg.fs * 0.3 : 0) + pad) / 10) * 10;
+    return { w: Math.max(200, w), h: Math.max(80, h) };
+  }
+  function baseUrl() { return location.href.split("#")[0].split("?")[0]; }
+  function update() {
+    restart();
+    applyStyle(prev, cfg); paintPreview();
+    var url = baseUrl() + "?" + toQuery(cfg);
+    $("obsUrl").value = url; $("openUrl").href = url;
+    var hs = sizeHint(); $("hintW").textContent = hs.w; $("hintH").textContent = hs.h;
+    try { localStorage.setItem("stream_timer_cfg_v1", JSON.stringify({ cfg: cfg, edited: edited })); } catch (e) {}
+  }
+  setInterval(paintPreview, 250);
+  window.addEventListener("resize", layoutPreview);
+
+  $("previewEnd").addEventListener("click", function () { previewEndUntil = Date.now() + 3000; paintPreview(); });
+  $("previewRestart").addEventListener("click", function () { previewEndUntil = 0; restart(); paintPreview(); });
+  $("in-label").addEventListener("input", function (e) { cfg.l = e.target.value.slice(0, 30); edited.l = true; update(); });
+  $("in-end").addEventListener("input", function (e) { cfg.e = e.target.value.slice(0, 30); edited.e = true; update(); });
+  $("in-size").addEventListener("input", function (e) { var v = Number(e.target.value), ok = Number.isInteger(v) && v >= 16 && v <= 400; e.target.setAttribute("aria-invalid", ok ? "false" : "true"); if (ok) { cfg.fs = v; update(); } });
+  $("in-size").addEventListener("blur", function (e) { e.target.value = cfg.fs; e.target.setAttribute("aria-invalid", "false"); });
+  $("in-font").addEventListener("change", function (e) { cfg.f = e.target.value; update(); });
+  $("in-align").addEventListener("change", function (e) { cfg.a = e.target.value; update(); });
+  $("in-color").addEventListener("input", function (e) { cfg.c = color(e.target.value, cfg.c); update(); });
+  $("in-ocolor").addEventListener("input", function (e) { cfg.oc = color(e.target.value, cfg.oc); update(); });
+  $("in-owidth").addEventListener("input", function (e) { var v = Number(e.target.value), ok = Number.isInteger(v) && v >= 0 && v <= 20; e.target.setAttribute("aria-invalid", ok ? "false" : "true"); if (ok) { cfg.ow = v; update(); } });
+  $("in-owidth").addEventListener("blur", function (e) { e.target.value = cfg.ow; e.target.setAttribute("aria-invalid", "false"); });
+  $("obsUrl").addEventListener("focus", function (e) { e.target.select(); });
+
+  var copyTimer = null;
+  $("copyUrl").addEventListener("click", function () {
+    var st = $("copyStatus"), text = $("obsUrl").value;
+    function say(m) { st.textContent = m; clearTimeout(copyTimer); copyTimer = setTimeout(function () { st.textContent = ""; }, 5000); }
+    function done() { say("コピーしました。OBSのブラウザソースの「URL」に貼り付けてください。"); track("url_copy", { mode: cfg.m, style: cfg.st }); }
+    function fallback() { var ta = $("obsUrl"); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (e) {} if (ok) done(); else say("コピーできませんでした。URLを選択してコピーしてください。"); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  });
+
+  
+
+  if (EDITION !== "full") {
+    $("privacyNote").innerHTML = '設定はURLと、このブラウザの中にだけ保存されます(開発者には送信されません)。OBSで表示するときは、このページ(GitHub Pages)を読み込みます。この設定ページでは利用状況の把握のためにアクセス解析(Google Analytics)を使っています(OBSで表示するときは使いません)。<a href="https://policies.google.com/technologies/partner-sites?hl=ja" target="_blank" rel="noopener">Googleによるデータの使用について</a>';
+  }
+
+  try {
+    var saved = JSON.parse(localStorage.getItem("stream_timer_cfg_v1") || "null");
+    if (saved && typeof saved === "object" && saved.cfg && typeof saved.cfg === "object") {
+      cfg = sanitize(saved.cfg);
+      if (saved.edited && typeof saved.edited === "object") edited = { l: !!saved.edited.l, e: !!saved.edited.e };
+    }
+  } catch (e) {}
+  syncForm(); renderSegs(); renderModeOpts(); update();
+})();
+</script>
+</body>
+</html>
